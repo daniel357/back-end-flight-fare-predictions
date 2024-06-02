@@ -3,7 +3,6 @@ import { PredictionResponse } from '../common/interfaces/prediction.interface';
 import { ModelService } from '../model/model.service';
 import { FlightDetails } from '../common/dto/flightDetails';
 import { lastValueFrom } from 'rxjs';
-import { PUBLIC_HOLIDAYS_API } from '../common/constants';
 import { HttpService } from '@nestjs/axios';
 import { HolidayDto } from '../common/dto/holidayDto';
 
@@ -58,8 +57,9 @@ export class PredictService {
   }
 
   private dateDifferenceInDays(flightDate: string, searchDate: string): number {
-    const diffTime =
-      new Date(flightDate).getTime() - new Date(searchDate).getTime();
+    const diffTime = Math.abs(
+      new Date(flightDate).getTime() - new Date(searchDate).getTime(),
+    );
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
@@ -87,8 +87,11 @@ export class PredictService {
   async getHolidays(): Promise<HolidayDto[]> {
     try {
       const response = await lastValueFrom(
-        this.httpService.get(PUBLIC_HOLIDAYS_API),
+        this.httpService.get(
+          'https://date.nager.at/api/v3/publicholidays/2022/US',
+        ),
       );
+      console.log('received data', response.data);
       return response.data;
     } catch (error) {
       throw new BadRequestException('Failed to fetch holidays');
@@ -97,9 +100,14 @@ export class PredictService {
 
   async isDateNearHoliday(dateString: string): Promise<boolean> {
     const holidays = await this.getHolidays();
-    return holidays.some((holiday) => {
+    for (const holiday of holidays) {
+      console.log(holiday.date);
       const diffDays = this.dateDifferenceInDays(dateString, holiday.date);
-      return diffDays <= 5;
-    });
+      console.log(diffDays);
+      if (diffDays <= 5) {
+        return true;
+      }
+    }
+    return false;
   }
 }
