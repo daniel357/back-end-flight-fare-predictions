@@ -1,18 +1,59 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { StatisticsService } from './statistics.service';
-import { Readable } from 'stream';
-import * as fs from 'fs';
-import * as csv from 'csv-parser';
-
-jest.mock('fs');
-jest.mock('csv-parser');
+import { firestore } from 'firebase-admin';
+import Firestore = firestore.Firestore;
 
 describe('StatisticsService', () => {
   let service: StatisticsService;
+  let firestoreMock: jest.Mocked<Firestore>;
+  let collectionMock: any;
 
   beforeEach(async () => {
+    collectionMock = {
+      orderBy: jest.fn().mockReturnThis(),
+      get: jest.fn().mockResolvedValue({
+        forEach: (
+          callback: (doc: {
+            data: () => {
+              flightDate: { toDate: () => Date };
+              baseFare: number;
+              isHoliday: boolean;
+            };
+          }) => void,
+        ) => {
+          const docs = [
+            {
+              data: () => ({
+                flightDate: { toDate: () => new Date('2023-06-01T00:00:00Z') },
+                baseFare: 100,
+                isHoliday: false,
+              }),
+            },
+            {
+              data: () => ({
+                flightDate: { toDate: () => new Date('2023-05-01T00:00:00Z') },
+                baseFare: 150,
+                isHoliday: true,
+              }),
+            },
+          ];
+          docs.forEach(callback);
+        },
+      } as unknown as firestore.QuerySnapshot),
+    };
+
+    firestoreMock = {
+      collection: jest.fn().mockReturnValue(collectionMock),
+    } as unknown as jest.Mocked<Firestore>;
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [StatisticsService],
+      providers: [
+        StatisticsService,
+        {
+          provide: 'FIRESTORE',
+          useValue: firestoreMock,
+        },
+      ],
     }).compile();
 
     service = module.get<StatisticsService>(StatisticsService);
@@ -23,29 +64,34 @@ describe('StatisticsService', () => {
   });
 
   describe('getAverageBaseFareData', () => {
-    it('should handle CSV parsing errors', async () => {
-      const filePath = 'path/to/file.csv';
-      const errorMessage = 'Error parsing CSV';
+    it('should retrieve average base fare data from Firestore', async () => {
+      const result = await service.getAverageBaseFareData();
 
-      // Mock the createReadStream function to return an empty readable stream
-      const mockStream = new Readable({
-        read() {
-          this.push(null); // End the stream immediately
+      expect(result).toEqual([
+        {
+          flightDate: '6/1/2023',
+          baseFare: 100,
+          isHoliday: false,
         },
-      });
+        {
+          flightDate: '5/1/2023',
+          baseFare: 150,
+          isHoliday: true,
+        },
+      ]);
 
-      (fs.createReadStream as jest.Mock).mockReturnValue(mockStream);
+      expect(firestoreMock.collection).toHaveBeenCalledWith(
+        'averageFarePrices',
+      );
+      expect(collectionMock.orderBy).toHaveBeenCalledWith('flightDate', 'desc');
+      expect(collectionMock.get).toHaveBeenCalled();
+    });
 
-      // Mock the csv function to emit an error
-      const mockCsvParser = jest.fn().mockImplementation(() => {
-        const output = new Readable({ objectMode: true });
-        process.nextTick(() => output.emit('error', new Error(errorMessage)));
-        return output;
-      });
-      (csv as jest.Mock).mockImplementation(mockCsvParser);
+    it('should handle Firestore errors gracefully', async () => {
+      collectionMock.get.mockRejectedValueOnce(new Error('Firestore error'));
 
-      await expect(service.getAverageBaseFareData(filePath)).rejects.toThrow(
-        errorMessage,
+      await expect(service.getAverageBaseFareData()).rejects.toThrow(
+        'Firestore error',
       );
     });
   });

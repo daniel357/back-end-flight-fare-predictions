@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Ticket Purchase Recommendation</title>
+    <style>
+        <%= cssContent %>
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <header>
+        <h1>Flight Ticket Purchase Recommendation</h1>
+    </header>
+    <main>
+        <p>Dear Customer,</p>
+        <p>We have analyzed the data for your upcoming flight from <strong>ORD (Chicago O'Hare)</strong> to <strong>LAX (Los Angeles International)</strong>.</p>
+        <p id="prediction-result-description">
+            For the flight on <strong><%= formattedStartDate %></strong> departing
+            at <strong><%= departureHour %>:<%= departureMinute %> </strong>, it is recommended to purchase your
+            ticket <strong><%= formattedDayToBuy %> days</strong> before departure for the best fare.
+        </p>
+        <p>We hope this information helps you in planning your travel. Have a safe and pleasant journey!</p>
+        <p>Best Regards.</p>
+    </main>
+    <footer>
+        <p>© 2024 Flight Price Prediction Team. All rights reserved.</p>
+    </footer>
+</div>
+</body>
+</html>
