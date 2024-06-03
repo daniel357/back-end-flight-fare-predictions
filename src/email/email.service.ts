@@ -76,6 +76,7 @@ export class MailService {
         departureHour: departureHour,
         departureMinute: departureMinute,
         cssContent: cssContent,
+        predictedDays: predictedDays,
       });
 
       await this.sendMail({
